@@ -23,8 +23,6 @@ const (
 	rightCurlyBracket  = '}'
 )
 
-const DefaultSectionName = "default"
-
 var supportedIds = map[string]interface{}{
 	"true":  true,
 	"yes":   true,
@@ -62,45 +60,12 @@ func (s SyntaxErr) Error() string {
 	return fmt.Sprintf("syntax error: expected %q, got %q (line: %s)", s.expected, s.got, s.pos)
 }
 
-func ReadFiles(files []string, data interface{}, section string) error {
-	for _, f := range files {
-		var filename string
-		switch e := filepath.Ext(section); e {
-		case "":
-			filename = section + ".ini"
-		case ".ini":
-			filename = section
-		default:
-			return fmt.Errorf("%s invalid extension", e)
-		}
-		if err := ReadFile(filepath.Join(f, filename), data, section); err != nil {
-			if _, ok := err.(*os.PathError); ok {
-				continue
-			} else {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func ReadFile(source string, data interface{}, section string) error {
-	f, err := os.Open(source)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return Read(f, data, section)
-}
-
-func Read(r io.Reader, data interface{}, section string) error {
+func Read(r io.Reader, data interface{}) error {
 	c, err := Parse(r)
 	if err != nil {
 		return err
 	}
-	if section == "" {
-		section = DefaultSectionName
-	}
+	
 	v := reflect.ValueOf(data).Elem()
 	t := v.Type()
 	for i := 0; i < v.NumField(); i++ {
@@ -109,14 +74,14 @@ func Read(r io.Reader, data interface{}, section string) error {
 			continue
 		}
 		info := t.Field(i)
-		name := section
+		var section string
 		option := info.Name
 
 		if tag := info.Tag.Get("ini"); tag != "" && tag != "-" {
 			if ix := strings.Index(tag, ">"); ix >= 0 {
-				name, option = strings.TrimSpace(tag[:ix]), strings.TrimSpace(tag[ix+1:])
+				section, option = strings.TrimSpace(tag[:ix]), strings.TrimSpace(tag[ix+1:])
 			} else {
-				name, option = tag, ""
+				section, option = tag, ""
 			}
 		}
 
@@ -234,10 +199,6 @@ loop:
 
 func parse(lex *lexer, c config) error {
 	lex.next()
-	/*if lex.token != scanner.Ident {
-		return SyntaxErr{expected: "identifier", got: lex.text(), pos: lex.scan.Pos()}
-	}
-	name := lex.text()*/
 	name, err := parseSectionName(lex)
 	if err != nil {
 		return err
