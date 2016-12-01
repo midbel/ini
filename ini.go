@@ -3,8 +3,6 @@ package ini
 import (
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -105,7 +103,7 @@ func Read(r io.Reader, data interface{}) error {
 			if !ok {
 				return fmt.Errorf("option %s not found in %s", option, section)
 			}
-			if err := update(f, other); err != nil {
+			if err := update(f, reflect.ValueOf(other)); err != nil {
 				return err
 			}
 		}
