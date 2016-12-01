@@ -35,28 +35,40 @@ type config map[string]section
 
 type section map[string]interface{}
 
-type DuplicateSectionErr string
 
-func (d DuplicateSectionErr) Error() string {
+//ErrDuplicateSection is returned when a section is defined more than once in a 
+//ini files.
+type ErrDuplicateSection string
+
+//Error gives an error message for the duplicated section.
+func (d ErrDuplicateSection) Error() string {
 	return fmt.Sprintf("duplicate section: %q already defined", d)
 }
 
-type DuplicateOptionErr struct {
+//ErrDuplicateOption is returned when an option is defined more than once in a 
+//specific section of an ini file.
+type ErrDuplicateOption struct {
 	option  string
 	section string
 }
 
-func (d DuplicateOptionErr) Error() string {
+//Error gives an error message for the duplicated option.
+func (d ErrDuplicateOption) Error() string {
 	return fmt.Sprintf("duplicate option: %q already defined in section %q", d.option, d.section)
 }
 
-type SyntaxErr struct {
+//ErrSyntax is returned when the parser meet an unexpected token in an ini file.
+//An unexpected token can be a missing ] to close a section header, an identifier
+//instead of an option value and so on.
+type ErrSyntax struct {
 	expected string
 	got      string
 	pos      scanner.Position
 }
 
-func (s SyntaxErr) Error() string {
+//Error gives an error message for the syntax error, the problematic token, the
+//expected one and the position in the ini file.
+func (s ErrSyntax) Error() string {
 	return fmt.Sprintf("syntax error: expected %q, got %q (line: %s)", s.expected, s.got, s.pos)
 }
 
@@ -147,7 +159,7 @@ func Parse(reader io.Reader) (config, error) {
 	c := make(config)
 	lex.next()
 	if lex.token != leftSquareBracket {
-		return c, SyntaxErr{expected: "[", got: lex.text(), pos: lex.scan.Pos()}
+		return c, ErrSyntax{expected: "[", got: lex.text(), pos: lex.scan.Pos()}
 	}
 	for lex.token != scanner.EOF {
 		if err := parse(lex, c); err != nil {
@@ -163,7 +175,7 @@ func parseSectionName(lex *lexer) (string, error) {
 loop:
 	for {
 		if lex.token != scanner.Ident {
-			return "", SyntaxErr{expected: "identifier", got: lex.text(), pos: lex.scan.Pos()}
+			return "", ErrSyntax{expected: "identifier", got: lex.text(), pos: lex.scan.Pos()}
 		}
 		parts = append(parts, lex.text())
 		switch lex.peek() {
@@ -184,12 +196,12 @@ func parse(lex *lexer, c config) error {
 		return err
 	}
 	if _, ok := c[name]; ok {
-		return DuplicateSectionErr(name)
+		return ErrDuplicateSection(name)
 	}
 
 	lex.next()
 	if lex.token != rightSquareBracket {
-		return SyntaxErr{expected: "]", got: lex.text(), pos: lex.scan.Pos()}
+		return ErrSyntax{expected: "]", got: lex.text(), pos: lex.scan.Pos()}
 	}
 
 	s := make(section)
@@ -200,19 +212,19 @@ func parse(lex *lexer, c config) error {
 			if lex.token == leftSquareBracket || lex.token == scanner.EOF {
 				break
 			}
-			return SyntaxErr{expected: "option's key", got: lex.text(), pos: lex.scan.Pos()}
+			return ErrSyntax{expected: "option's key", got: lex.text(), pos: lex.scan.Pos()}
 		}
 		option := lex.text()
 		lex.next()
 		if lex.token != eq {
-			return SyntaxErr{expected: string(eq), got: lex.text(), pos: lex.scan.Pos()}
+			return ErrSyntax{expected: string(eq), got: lex.text(), pos: lex.scan.Pos()}
 		}
 		lex.next()
 		if value, err := parseOption(lex); err != nil {
 			return err
 		} else {
 			if _, ok := s[option]; ok {
-				return DuplicateOptionErr{option, name}
+				return ErrDuplicateOption{option, name}
 			}
 			s[option] = value
 			parseComment(lex)
@@ -264,7 +276,7 @@ func parseOption(lex *lexer) (interface{}, error) {
 			}
 			lex.next()
 			if lex.token != coma {
-				return nil, SyntaxErr{expected: string(coma), got: lex.text(), pos: lex.scan.Pos()}
+				return nil, ErrSyntax{expected: string(coma), got: lex.text(), pos: lex.scan.Pos()}
 			}
 		}
 		return values, nil
@@ -282,13 +294,13 @@ func parseOption(lex *lexer) (interface{}, error) {
 			} else {
 				v, ok := v.(string)
 				if !ok {
-					return nil, SyntaxErr{expected: "hash keys must be strings", got: v, pos: lex.scan.Pos()}
+					return nil, ErrSyntax{expected: "hash keys must be strings", got: v, pos: lex.scan.Pos()}
 				}
 				key = v
 			}
 			lex.next()
 			if lex.token != colon {
-				return nil, SyntaxErr{expected: string(colon), got: lex.text(), pos: lex.scan.Pos()}
+				return nil, ErrSyntax{expected: string(colon), got: lex.text(), pos: lex.scan.Pos()}
 			}
 			lex.next()
 			if v, err := parseOption(lex); err != nil {
@@ -298,12 +310,12 @@ func parseOption(lex *lexer) (interface{}, error) {
 			}
 			lex.next()
 			if lex.token != coma {
-				return nil, SyntaxErr{expected: string(coma), got: lex.text(), pos: lex.scan.Pos()}
+				return nil, ErrSyntax{expected: string(coma), got: lex.text(), pos: lex.scan.Pos()}
 			}
 		}
 		return values, nil
 	}
-	return nil, SyntaxErr{expected: "option's value", got: lex.text(), pos: lex.scan.Pos()}
+	return nil, ErrSyntax{expected: "option's value", got: lex.text(), pos: lex.scan.Pos()}
 }
 
 type lexer struct {
