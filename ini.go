@@ -74,51 +74,31 @@ func Read(r io.Reader, data interface{}) error {
 			continue
 		}
 		info := t.Field(i)
-		var section string
-		option := info.Name
-
-		if tag := info.Tag.Get("ini"); tag != "" && tag != "-" {
-			if ix := strings.Index(tag, ">"); ix >= 0 {
-				section, option = strings.TrimSpace(tag[:ix]), strings.TrimSpace(tag[ix+1:])
+		switch tag := info.Tag.Get("ini"); tag {
+		case "-":
+			continue
+		case "":
+		default:
+			var section, option string
+			if ix := strings.Index(tag, ">"); ix < 0 {
+				section, option = tag, strings.ToLower(info.Name)
 			} else {
-				section, option = tag, ""
+				section, option = tag[:ix], tag[ix+1:]
 			}
-		}
-
-		s, ok := c[name]
-		if !ok {
-			continue
-		}
-
-		if info.Anonymous || option == "" {
-			if err := updateFromSection(f.Elem(), s); err != nil {
-				return err
+			s, ok := c[section]
+			if !ok {
+				return fmt.Errorf("section %s not found", section)
 			}
-			continue
-		}
-		if opt, ok := s[strings.ToLower(option)]; ok {
-			if err := update(f, reflect.ValueOf(opt)); err != nil {
+			other, ok := s[option]
+			if !ok {
+				return fmt.Errorf("option %s not found in %s", option, section)
+			}
+			if err := update(f, other); err != nil {
 				return err
 			}
 		}
 	}
 
-	return nil
-}
-
-func updateFromSection(v reflect.Value, s section) error {
-	t := v.Type()
-	for i := 0; i < v.NumField(); i++ {
-		f := v.Field(i)
-		info := t.Field(i)
-
-		option := strings.ToLower(info.Name)
-		if opt, ok := s[strings.ToLower(option)]; ok {
-			if err := update(f, reflect.ValueOf(opt)); err != nil {
-				return err
-			}
-		}
-	}
 	return nil
 }
 
@@ -126,7 +106,7 @@ func update(f, other reflect.Value) error {
 	if other.Kind() == reflect.Interface {
 		other = reflect.ValueOf(other.Interface())
 	}
-	if f.CanSet() && f.Kind() != other.Kind() {
+	if f.Kind() != other.Kind() {
 		return fmt.Errorf("wrong option type: expected %s, got %s", f.Kind(), other.Kind())
 	}
 
