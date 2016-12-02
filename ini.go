@@ -22,6 +22,11 @@ const (
 	rightCurlyBracket  = '}'
 )
 
+var (
+	DefaultSectionName = os.Args[0]
+	DefaultStrictMode  = false
+)
+
 var supportedIds = map[string]interface{}{
 	"true":  true,
 	"yes":   true,
@@ -75,10 +80,11 @@ type Reader struct {
 	r       io.Reader
 	Default string
 	Strict  bool
+	Insensitive bool
 }
 
 func NewReader(r io.Reader) *Reader {
-	return &Reader{r, os.Args[0], false}
+	return &Reader{r, DefaultSectionName, DefaultStrictMode, true}
 }
 
 func (r *Reader) Read(v interface{}) error {
