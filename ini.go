@@ -107,16 +107,25 @@ func read(v reflect.Value, c config, section string, strict bool) error {
 		field := t.Field(i)
 		switch name := strings.ToLower(field.Name); f.Kind() {
 		case reflect.Struct:
+			//a struct can be the value of an option (as a map) or one and only one section
+			if _, ok := c[name]; !ok {
+				name = section
+			}
 			other := reflect.New(f.Type()).Elem()
-			if err := read(other, c, name, strict); err != nil {
-				continue
+			if err := read(other, c, name, strict); err != nil && strict {
+				return err
 			}
 			f.Set(other)
+		case reflect.Slice:
+			//a slice can be the value of an option or multiple sections
+		case reflect.Map:
+			//a map can be the value of an option or multiple sections
 		case reflect.Ptr:
-			if err := read(f.Elem(), c, name, strict); err != nil {
-				continue
+			if err := read(f.Elem(), c, name, strict); err != nil && strict {
+				return err
 			}
 		default:
+			//lookup for an option in the current section with a basic type (string, bool, int...)
 			s, ok := c[section]
 			if !ok {
 				continue
