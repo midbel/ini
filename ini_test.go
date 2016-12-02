@@ -6,7 +6,7 @@ import (
 )
 
 const account = `
-[sample]
+[account]
 user = "nobody"
 passwd = "foobar"
 enabled = true
@@ -36,7 +36,7 @@ class = "posixGroup"
 `
 
 const urls = `
-[pex]
+[urls]
 addr = "tcp://localhost:6789"
 verbose = true
 count = 5
@@ -63,13 +63,25 @@ keep   = false
 `
 
 func TestReadAccount(t *testing.T) {
-	t.SkipNow()
+	r := NewReader(strings.NewReader(account))
+	r.Default = "account"
+	if err := r.Read(nil); err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
 }
 
 func TestReadDirectory(t *testing.T) {
-	t.SkipNow()
+	r := NewReader(strings.NewReader(directory))
+	r.Default = "ldap"
+	if err := r.Read(nil); err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
 }
 
 func TestReadURLS(t *testing.T) {
-	t.SkipNow()
+	r := NewReader(strings.NewReader(urls))
+	r.Default = "urls"
+	if err := r.Read(nil); err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
 }
