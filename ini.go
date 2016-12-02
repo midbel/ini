@@ -106,23 +106,29 @@ func read(v reflect.Value, c config, section string, strict bool) error {
 			continue
 		}
 		field := t.Field(i)
-		s, ok := c[section]
-		if !ok {
-			if strict {
-				return fmt.Errorf("section %s not found", section)
+		switch name := strings.ToLower(field.Name); f.Kind() {
+		case reflect.Struct:
+			other := reflect.New(f.Type()).Elem()
+			if err := read(other, c, name, strict); err != nil {
+				continue
 			}
-			continue
-		}
-		option := strings.ToLower(field.Name)
-		o, ok := s[option]
-		if !ok {
-			if strict {
-				return fmt.Errorf("section %s has no option %s", section, option)
+			f.Set(other)
+		case reflect.Ptr:
+			if err := read(f.Elem(), c, name, strict); err != nil {
+				continue
 			}
-			continue
-		}
-		if err := decode(f, reflect.ValueOf(o)); err != nil && strict {
-			return fmt.Errorf("can not set value %v to %s", o, option)
+		default:
+			s, ok := c[section]
+			if !ok {
+				continue
+			}
+			o, ok := s[name]
+			if !ok {
+				continue
+			}
+			if err := decode(f, reflect.ValueOf(o)); err != nil && strict {
+				return fmt.Errorf("can not set value %v to %s", o, name)
+			}
 		}
 	}
 	return nil
