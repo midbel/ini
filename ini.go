@@ -70,6 +70,58 @@ func (s ErrSyntax) Error() string {
 	return fmt.Sprintf("syntax error: expected %q, got %q (line: %s)", s.expected, s.got, s.pos)
 }
 
+type Reader struct {
+	r       io.Reader
+	Default string
+	Strict  bool
+}
+
+func NewReader(r io.Reader) *Reader {
+	return &Reader{r, os.Args[0], false}
+}
+
+func (r *Reader) Read(v interface{}) error {
+	c, err := Parse(r.r)
+	if err != nil {
+		return err
+	}
+	return read(reflect.ValueOf(v).Elem(), c, r.Default, r.Strict)
+}
+
+func read(v reflect.Value, c config, section string, strict bool) error {
+	t := v.Type()
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		if !f.CanSet() {
+			continue
+		}
+		field := t.Field(i)
+		s, ok := c[section]
+		if !ok {
+			if strict {
+				return fmt.Errorf("section %s not found", section)
+			}
+			continue
+		}
+		option = strings.ToLower(field.Name)
+		o, ok := s[option]
+		if !ok {
+			if strict {
+				return fmt.Errorf("section %s has no option %s", section, option)
+			}
+			continue
+		}
+		if err := decode(f, reflect.ValueOf(o)); err != nil && strict {
+			return fmt.Errorf("can not set value %v to %s", o, option)
+		}
+	}
+	return nil
+}
+
+func decode(v, other reflect.Value) error {
+	return nil
+}
+
 func Parse(reader io.Reader) (config, error) {
 	lex := new(lexer)
 	lex.scan.Init(reader)
