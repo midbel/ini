@@ -143,6 +143,9 @@ func read(v reflect.Value, c config, section string, strict bool) error {
 }
 
 func decode(v, other reflect.Value) error {
+	if v.Kind() != other.Kind() {
+		return fmt.Errorf("mismatched type. Expected %s, got %s", v.Kind(), other.Kind())
+	}
 	switch v.Kind() {
 	case reflect.String:
 		v.SetString(other.String())
@@ -150,6 +153,8 @@ func decode(v, other reflect.Value) error {
 		v.SetBool(other.Bool())
 	case reflect.Int:
 		v.SetInt(other.Int())
+	default:
+		return fmt.Errorf("unsupported data type %s", v.Kind())
 	}
 	return nil
 }
