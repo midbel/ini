@@ -21,16 +21,16 @@ passwd = "helloworld"
 base   = "dc=foobar,dc=com"
 hash   = "md5"
 
-[node.users]
+[users]
 ;definition of node to lookup user's account
-node  = "ou=users,dc=foobar,dc=be"
+node  = "ou=users,dc=foobar,dc=com"
 attr  = "uid"
 scope = 2
 class = "posixAccount"
 
-[node.groups]
+[groups]
 ;definition of node to lookup user's groups
-node  = "ou=groups,dc=foobar,dc=be"
+node  = "ou=groups,dc=foobar,dc=com"
 attr  = "cn"
 scope = 2
 class = "posixGroup"
@@ -104,11 +104,34 @@ func TestReadAccount(t *testing.T) {
 }
 
 func TestReadDirectory(t *testing.T) {
+	type Node struct {
+		Node string
+		Attr string
+		Class string
+		Scope int
+	}
+	type Directory struct {
+		Host string
+		Bind string
+		Passwd string
+		Base string
+		Hash string
+		Users Node
+		Groups Node				
+	}
+	d := Directory{}
 	r := NewReader(strings.NewReader(directory))
 	r.Default = "ldap"
-	if err := r.Read(nil); err != nil {
+	if err := r.Read(&d); err != nil {
 		t.Errorf("unexpected error: %s", err)
 	}
+	if d.Users.Node != "ou=users,dc=foobar,dc=com" {
+		t.Errorf("users.node: expected ou=users,dc=foobar,dc=com; got %s", d.Users.Node)
+	}
+	if d.Groups.Node != "ou=groups,dc=foobar,dc=com" {
+		t.Errorf("groups.node: expected ou=groups,dc=foobar,dc=com; got %s", d.Users.Node)
+	}
+	t.Logf("%+v", d)
 }
 
 func TestReadURLS(t *testing.T) {
