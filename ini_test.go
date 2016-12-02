@@ -66,13 +66,13 @@ keep   = false
 func ExampleRead() {
 	r := NewReader(strings.NewReader(account))
 	r.Default = "account"
-	
-	a := struct{
-		User string
-		Passwd string
+
+	a := struct {
+		User    string
+		Passwd  string
 		Enabled bool
 	}{}
-	
+
 	r.Read(&a)
 	fmt.Printf("%+v\n", a)
 	//Output:
@@ -82,10 +82,10 @@ func ExampleRead() {
 func TestReadAccount(t *testing.T) {
 	r := NewReader(strings.NewReader(account))
 	r.Default = "account"
-	
-	a := struct{
-		User string
-		Passwd string
+
+	a := struct {
+		User    string
+		Passwd  string
 		Enabled bool
 	}{"root", "helloworld", false}
 	if err := r.Read(&a); err != nil {
@@ -105,19 +105,19 @@ func TestReadAccount(t *testing.T) {
 
 func TestReadDirectory(t *testing.T) {
 	type Node struct {
-		Node string
-		Attr string
+		Node  string
+		Attr  string
 		Class string
 		Scope int
 	}
 	type Directory struct {
-		Host string
-		Bind string
+		Host   string
+		Bind   string
 		Passwd string
-		Base string
-		Hash string
-		Users Node
-		Groups Node				
+		Base   string
+		Hash   string
+		Users  Node
+		Groups Node
 	}
 	d := Directory{}
 	r := NewReader(strings.NewReader(directory))

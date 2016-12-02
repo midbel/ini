@@ -39,8 +39,7 @@ type config map[string]section
 
 type section map[string]interface{}
 
-
-//ErrDuplicateSection is returned when a section is defined more than once in a 
+//ErrDuplicateSection is returned when a section is defined more than once in a
 //ini files.
 type ErrDuplicateSection string
 
@@ -49,7 +48,7 @@ func (d ErrDuplicateSection) Error() string {
 	return fmt.Sprintf("duplicate section: %q already defined", d)
 }
 
-//ErrDuplicateOption is returned when an option is defined more than once in a 
+//ErrDuplicateOption is returned when an option is defined more than once in a
 //specific section of an ini file.
 type ErrDuplicateOption struct {
 	option  string
@@ -77,9 +76,9 @@ func (s ErrSyntax) Error() string {
 }
 
 type Reader struct {
-	r       io.Reader
-	Default string
-	Strict  bool
+	r           io.Reader
+	Default     string
+	Strict      bool
 	Insensitive bool
 }
 
