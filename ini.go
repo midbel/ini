@@ -35,10 +35,6 @@ var supportedIds = map[string]interface{}{
 	"null":  nil,
 }
 
-type config map[string]section
-
-type section map[string]interface{}
-
 //ErrDuplicateSection is returned when a section is defined more than once in a
 //ini files.
 type ErrDuplicateSection string
@@ -76,25 +72,40 @@ func (s ErrSyntax) Error() string {
 }
 
 type Reader struct {
-	r           io.Reader
 	Default     string
 	Strict      bool
 	Insensitive bool
+	reader      io.Reader
+	config      config
 }
 
 func NewReader(r io.Reader) *Reader {
-	return &Reader{r, DefaultSectionName, DefaultStrictMode, true}
+	return &Reader{
+		reader: r,
+		Default: DefaultSectionName,
+		Strict: DefaultStrictMode,
+	}
 }
 
 func (r *Reader) Read(v interface{}) error {
-	if v == nil {
-		return nil
-	}
-	c, err := Parse(r.r)
+	c, err := Parse(r.reader)
 	if err != nil {
 		return err
 	}
-	return read(reflect.ValueOf(v).Elem(), c, r.Default, r.Strict)
+	r.config = c
+	if v == nil {
+		return nil
+	}
+	return read(reflect.ValueOf(v).Elem(), r.config, r.Default, r.Strict)
+}
+
+//ReadSection reads the section s from the Reader into v. If the embed config of
+//the reader is nil, no error is returned and v is unchanged.
+func (r *Reader) ReadSection(s string, v interface{}) error {
+	if r.config == nil {
+		return nil
+	}
+	return read(reflect.ValueOf(v).Elem(), r.config, s, r.Strict)
 }
 
 func read(v reflect.Value, c config, section string, strict bool) error {
@@ -130,7 +141,7 @@ func read(v reflect.Value, c config, section string, strict bool) error {
 			if !ok {
 				continue
 			}
-			o, ok := s[name]
+			o, ok := s.Options[name]
 			if !ok {
 				continue
 			}
@@ -157,6 +168,14 @@ func decode(v, other reflect.Value) error {
 		return fmt.Errorf("unsupported data type %s", v.Kind())
 	}
 	return nil
+}
+
+type config map[string]section
+
+type section struct {
+	Name string
+	Options  map[string]interface{}
+	Sections map[string]section
 }
 
 func Parse(reader io.Reader) (config, error) {
@@ -212,7 +231,7 @@ func parse(lex *lexer, c config) error {
 		return ErrSyntax{expected: "]", got: lex.text(), pos: lex.scan.Pos()}
 	}
 
-	s := make(section)
+	s := section{name, make(map[string]interface{}), make(map[string]section)}
 	for {
 		lex.next()
 		parseComment(lex)
@@ -231,14 +250,14 @@ func parse(lex *lexer, c config) error {
 		if value, err := parseOption(lex); err != nil {
 			return err
 		} else {
-			if _, ok := s[option]; ok {
+			if _, ok := s.Options[option]; ok {
 				return ErrDuplicateOption{option, name}
 			}
-			s[option] = value
+			s.Options[option] = value
 			parseComment(lex)
 		}
 	}
-	if len(s) > 0 {
+	if len(s.Options) > 0 {
 		c[name] = s
 	}
 
