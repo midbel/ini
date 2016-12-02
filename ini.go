@@ -3,6 +3,7 @@ package ini
 import (
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -81,6 +82,9 @@ func NewReader(r io.Reader) *Reader {
 }
 
 func (r *Reader) Read(v interface{}) error {
+	if v == nil {
+		return nil
+	}
 	c, err := Parse(r.r)
 	if err != nil {
 		return err
@@ -103,7 +107,7 @@ func read(v reflect.Value, c config, section string, strict bool) error {
 			}
 			continue
 		}
-		option = strings.ToLower(field.Name)
+		option := strings.ToLower(field.Name)
 		o, ok := s[option]
 		if !ok {
 			if strict {
@@ -119,6 +123,14 @@ func read(v reflect.Value, c config, section string, strict bool) error {
 }
 
 func decode(v, other reflect.Value) error {
+	switch v.Kind() {
+	case reflect.String:
+		v.SetString(other.String())
+	case reflect.Bool:
+		v.SetBool(other.Bool())
+	case reflect.Int:
+		v.SetInt(other.Int())
+	}
 	return nil
 }
 
