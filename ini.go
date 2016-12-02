@@ -81,9 +81,9 @@ type Reader struct {
 
 func NewReader(r io.Reader) *Reader {
 	return &Reader{
-		reader: r,
+		reader:  r,
 		Default: DefaultSectionName,
-		Strict: DefaultStrictMode,
+		Strict:  DefaultStrictMode,
 	}
 }
 
@@ -170,12 +170,12 @@ func decode(v, other reflect.Value) error {
 	return nil
 }
 
-type config map[string]section
+type config map[string]*section
 
 type section struct {
-	Name string
+	Name     string
 	Options  map[string]interface{}
-	Sections map[string]section
+	Sections map[string]*section
 }
 
 func Parse(reader io.Reader) (config, error) {
@@ -193,37 +193,29 @@ func Parse(reader io.Reader) (config, error) {
 			return c, err
 		}
 	}
-
 	return c, nil
-}
-
-func parseSectionName(lex *lexer) (string, error) {
-	parts := make([]string, 0)
-loop:
-	for {
-		if lex.token != scanner.Ident {
-			return "", ErrSyntax{expected: "identifier", got: lex.text(), pos: lex.scan.Pos()}
-		}
-		parts = append(parts, lex.text())
-		switch lex.peek() {
-		case dot:
-			lex.next()
-		case rightSquareBracket:
-			break loop
-		}
-		lex.next()
-	}
-	return strings.Join(parts, "."), nil
 }
 
 func parse(lex *lexer, c config) error {
 	lex.next()
-	name, err := parseSectionName(lex)
+	base, parts, err := parseSectionName(lex)
 	if err != nil {
 		return err
 	}
-	if _, ok := c[name]; ok {
-		return ErrDuplicateSection(name)
+
+	s, ok := c[base]
+	if !ok {
+		s = &section{base, make(map[string]interface{}), make(map[string]*section)}
+		c[base] = s
+	}
+	for _, name := range parts {
+		other, ok := s.Sections[name]
+		if !ok {
+			s.Sections[name] = &section{name, make(map[string]interface{}), make(map[string]*section)}
+			s = s.Sections[name]
+		} else {
+			s = other
+		}
 	}
 
 	lex.next()
@@ -231,7 +223,7 @@ func parse(lex *lexer, c config) error {
 		return ErrSyntax{expected: "]", got: lex.text(), pos: lex.scan.Pos()}
 	}
 
-	s := section{name, make(map[string]interface{}), make(map[string]section)}
+	//s := section{name, make(map[string]interface{}), make(map[string]section)}
 	for {
 		lex.next()
 		parseComment(lex)
@@ -251,17 +243,37 @@ func parse(lex *lexer, c config) error {
 			return err
 		} else {
 			if _, ok := s.Options[option]; ok {
-				return ErrDuplicateOption{option, name}
+				return ErrDuplicateOption{option, base}
 			}
 			s.Options[option] = value
 			parseComment(lex)
 		}
 	}
-	if len(s.Options) > 0 {
-		c[name] = s
-	}
 
 	return nil
+}
+
+func parseSectionName(lex *lexer) (string, []string, error) {
+	parts := make([]string, 0)
+loop:
+	for {
+		if lex.token != scanner.Ident {
+			return "", nil, ErrSyntax{expected: "identifier", got: lex.text(), pos: lex.scan.Pos()}
+		}
+		parts = append(parts, lex.text())
+		switch lex.peek() {
+		case dot:
+			lex.next()
+		case rightSquareBracket:
+			break loop
+		}
+		lex.next()
+	}
+	if len(parts) > 1 {
+		return parts[0], parts[1:], nil
+	} else {
+		return parts[0], []string{}, nil
+	}
 }
 
 func parseComment(lex *lexer) {
