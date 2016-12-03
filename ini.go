@@ -88,7 +88,7 @@ func NewReader(r io.Reader) *Reader {
 }
 
 func (r *Reader) Read(v interface{}) error {
-	c, err := Parse(r.reader)
+	c, err := parse(r.reader)
 	if err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ type section struct {
 	Sections map[string]*section
 }
 
-func Parse(reader io.Reader) (config, error) {
+func parse(reader io.Reader) (config, error) {
 	lex := new(lexer)
 	lex.scan.Init(reader)
 	lex.scan.Mode = scanner.ScanIdents | scanner.ScanStrings | scanner.ScanInts | scanner.ScanFloats
@@ -189,14 +189,14 @@ func Parse(reader io.Reader) (config, error) {
 		return c, ErrSyntax{expected: "[", got: lex.text(), pos: lex.scan.Pos()}
 	}
 	for lex.token != scanner.EOF {
-		if err := parse(lex, c); err != nil {
+		if err := parseSections(lex, c); err != nil {
 			return c, err
 		}
 	}
 	return c, nil
 }
 
-func parse(lex *lexer, c config) error {
+func parseSections(lex *lexer, c config) error {
 	lex.next()
 	base, parts, err := parseSectionName(lex)
 	if err != nil {
