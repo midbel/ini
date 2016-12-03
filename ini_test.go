@@ -44,19 +44,19 @@ count = 5
 size = 1024
 datadir = "/var/tmp/"
 
-[urls.group0]
+[groups.group0]
 group  = "udp://224.0.0.1:11001"
 prefix = "0xbeef"
 size   = 1024
 keep   = false
 
-[urls.group1]
+[groups.group1]
 group  = "udp://224.0.0.1:11002"
 prefix = "0xdead"
 size   = 1024
 keep   = false
 
-[urls.group2]
+[groups.group2]
 group  = "udp://224.0.0.1:11003"
 prefix = "0xcafe"
 size   = 1024
@@ -98,7 +98,7 @@ func TestReadAccount(t *testing.T) {
 		t.Errorf("passwd: expected nobody; got %s", a.Passwd)
 	}
 	if !a.Enabled {
-		t.Errorf("enabled: expected true; got %s", a.Enabled)
+		t.Errorf("enabled: expected true; got %t", a.Enabled)
 	}
 	t.Logf("%+v", a)
 }
@@ -135,9 +135,34 @@ func TestReadDirectory(t *testing.T) {
 }
 
 func TestReadURLS(t *testing.T) {
+	type Group struct {
+		Group  string
+		Prefix string
+		Keep   bool
+		Size   int
+	}
+
+	type Multiplex struct {
+		Addr    string
+		Verbose bool
+		Count   int
+		Size    int
+		Datadir string
+		Groups  []Group
+	}
+	m := Multiplex{}
 	r := NewReader(strings.NewReader(urls))
 	r.Default = "urls"
-	if err := r.Read(nil); err != nil {
+	if err := r.Read(&m); err != nil {
 		t.Errorf("unexpected error: %s", err)
 	}
+	if len(m.Groups) == 0 {
+		t.Errorf("empty groups; expected length of 3")
+	}
+	for i, g := range m.Groups {
+		if g.Group == "" {
+			t.Errorf("empty group name at %d, expected url", i)
+		}
+	}
+	t.Logf("%+v\n", m)
 }

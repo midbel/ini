@@ -76,7 +76,7 @@ type Reader struct {
 	Strict      bool
 	Insensitive bool
 	reader      io.Reader
-	config      config
+	config      *section
 }
 
 func NewReader(r io.Reader) *Reader {
@@ -108,7 +108,7 @@ func (r *Reader) ReadSection(s string, v interface{}) error {
 	return read(reflect.ValueOf(v).Elem(), r.config, s, r.Strict)
 }
 
-func read(v reflect.Value, c config, section string, strict bool) error {
+func read(v reflect.Value, c *section, section string, strict bool) error {
 	t := v.Type()
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Field(i)
@@ -119,7 +119,7 @@ func read(v reflect.Value, c config, section string, strict bool) error {
 		switch name := strings.ToLower(field.Name); f.Kind() {
 		case reflect.Struct:
 			//a struct can be the value of an option (as a map) or one and only one section
-			if _, ok := c[name]; !ok {
+			if _, ok := c.Sections[name]; !ok {
 				name = section
 			}
 			other := reflect.New(f.Type()).Elem()
@@ -129,6 +129,14 @@ func read(v reflect.Value, c config, section string, strict bool) error {
 			f.Set(other)
 		case reflect.Slice:
 			//a slice can be the value of an option or multiple sections
+			s := c.Sections[name]
+			for n, other := range s.Sections {
+				v := reflect.New(f.Type().Elem()).Elem()
+				if err := read(v, other, n, strict); err != nil {
+					return err
+				}
+				f.Set(reflect.Append(f, v))
+			}
 		case reflect.Map:
 			//a map can be the value of an option or multiple sections
 		case reflect.Ptr:
@@ -137,9 +145,9 @@ func read(v reflect.Value, c config, section string, strict bool) error {
 			}
 		default:
 			//lookup for an option in the current section with a basic type (string, bool, int...)
-			s, ok := c[section]
+			s, ok := c.Sections[section]
 			if !ok {
-				continue
+				s = c
 			}
 			o, ok := s.Options[name]
 			if !ok {
@@ -178,12 +186,12 @@ type section struct {
 	Sections map[string]*section
 }
 
-func parse(reader io.Reader) (config, error) {
+func parse(reader io.Reader) (*section, error) {
 	lex := new(lexer)
 	lex.scan.Init(reader)
 	lex.scan.Mode = scanner.ScanIdents | scanner.ScanStrings | scanner.ScanInts | scanner.ScanFloats
 
-	c := make(config)
+	c := &section{"", make(map[string]interface{}), make(map[string]*section)}
 	lex.next()
 	if lex.token != leftSquareBracket {
 		return c, ErrSyntax{expected: "[", got: lex.text(), pos: lex.scan.Pos()}
@@ -196,17 +204,17 @@ func parse(reader io.Reader) (config, error) {
 	return c, nil
 }
 
-func parseSections(lex *lexer, c config) error {
+func parseSections(lex *lexer, c *section) error {
 	lex.next()
 	base, parts, err := parseSectionName(lex)
 	if err != nil {
 		return err
 	}
 
-	s, ok := c[base]
+	s, ok := c.Sections[base]
 	if !ok {
 		s = &section{base, make(map[string]interface{}), make(map[string]*section)}
-		c[base] = s
+		c.Sections[base] = s
 	}
 	for _, name := range parts {
 		other, ok := s.Sections[name]
