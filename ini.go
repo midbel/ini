@@ -23,10 +23,16 @@ const (
 )
 
 var (
+	//Name of the top level section of an ini file. By Default, the value is set
+	//to the program
 	DefaultSectionName = os.Args[0]
+	
+	//Strict Mode defines how the parser and the reader will behave when a section
+	//and/or option will not be found or is duplicated.
 	DefaultStrictMode  = false
 )
 
+//list of identifier that will be directly map to a go predefined value.
 var supportedIds = map[string]interface{}{
 	"true":  true,
 	"yes":   true,
