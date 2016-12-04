@@ -11,6 +11,7 @@ const account = `
 user = "nobody"
 passwd = "foobar"
 enabled = true
+alias   = ["root", "nobody", "test",]
 `
 
 const directory = `
@@ -87,7 +88,8 @@ func TestReadAccount(t *testing.T) {
 		User    string
 		Passwd  string
 		Enabled bool
-	}{"root", "helloworld", false}
+		Alias   []string
+	}{"root", "helloworld", false, make([]string, 0)}
 	if err := r.Read(&a); err != nil {
 		t.Errorf("unexpected error: %s", err)
 	}
@@ -99,6 +101,9 @@ func TestReadAccount(t *testing.T) {
 	}
 	if !a.Enabled {
 		t.Errorf("enabled: expected true; got %t", a.Enabled)
+	}
+	if len(a.Alias) == 0 {
+		t.Errorf("empty alias array, expected 3")
 	}
 	t.Logf("%+v", a)
 }

@@ -161,6 +161,9 @@ func read(v reflect.Value, s *section, strict bool) error {
 }
 
 func decode(v, other reflect.Value) error {
+	if other.Kind() == reflect.Interface {
+		other = reflect.ValueOf(other.Interface())
+	}
 	if v.Kind() != other.Kind() {
 		return fmt.Errorf("mismatched type. Expected %s, got %s", v.Kind(), other.Kind())
 	}
