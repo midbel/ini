@@ -88,7 +88,7 @@ func NewReader(r io.Reader) *Reader {
 }
 
 func (r *Reader) Read(v interface{}) error {
-	c, err := parse(r.reader)
+	c, err := parse(r.reader, r.Default)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (r *Reader) Read(v interface{}) error {
 	if v == nil {
 		return nil
 	}
-	return read(reflect.ValueOf(v).Elem(), r.config, r.Default, r.Strict)
+	return read(reflect.ValueOf(v).Elem(), r.config, r.Strict)
 }
 
 //ReadSection reads the section s from the Reader into v. If the embed config of
@@ -105,10 +105,10 @@ func (r *Reader) ReadSection(s string, v interface{}) error {
 	if r.config == nil {
 		return nil
 	}
-	return read(reflect.ValueOf(v).Elem(), r.config, s, r.Strict)
+	return read(reflect.ValueOf(v).Elem(), r.config, r.Strict)
 }
 
-func read(v reflect.Value, c *section, section string, strict bool) error {
+func read(v reflect.Value, s *section, strict bool) error {
 	t := v.Type()
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Field(i)
@@ -116,46 +116,45 @@ func read(v reflect.Value, c *section, section string, strict bool) error {
 			continue
 		}
 		field := t.Field(i)
-		switch name := strings.ToLower(field.Name); f.Kind() {
-		case reflect.Struct:
-			//a struct can be the value of an option (as a map) or one and only one section
-			if _, ok := c.Sections[name]; !ok {
-				name = section
-			}
-			other := reflect.New(f.Type()).Elem()
-			if err := read(other, c, name, strict); err != nil && strict {
+		//check if s has field.Name as an option
+		o, ok := s.Options[strings.ToLower(field.Name)]
+		if ok {
+			if err := decode(f, reflect.ValueOf(o)); err != nil {
 				return err
 			}
-			f.Set(other)
+			continue
+		}
+		//check if s has field.Name as a section
+		switch name := strings.ToLower(field.Name); f.Kind() {
+		case reflect.Struct:
+			other, ok := s.Sections[name]
+			if !ok {
+				continue
+			}
+			v := reflect.New(f.Type()).Elem()
+			if err := read(v, other, strict); err != nil && strict {
+				return err
+			}
+			f.Set(v)
 		case reflect.Slice:
-			//a slice can be the value of an option or multiple sections
-			s := c.Sections[name]
-			for n, other := range s.Sections {
+			other, ok := s.Sections[name]
+			if !ok {
+				continue
+			}
+			for _, s := range other.Sections {
 				v := reflect.New(f.Type().Elem()).Elem()
-				if err := read(v, other, n, strict); err != nil {
+				if err := read(v, s, strict); err != nil {
 					return err
 				}
 				f.Set(reflect.Append(f, v))
 			}
 		case reflect.Map:
-			//a map can be the value of an option or multiple sections
 		case reflect.Ptr:
-			if err := read(f.Elem(), c, name, strict); err != nil && strict {
+			if err := read(f.Elem(), s, strict); err != nil && strict {
 				return err
 			}
 		default:
-			//lookup for an option in the current section with a basic type (string, bool, int...)
-			s, ok := c.Sections[section]
-			if !ok {
-				s = c
-			}
-			o, ok := s.Options[name]
-			if !ok {
-				continue
-			}
-			if err := decode(f, reflect.ValueOf(o)); err != nil && strict {
-				return fmt.Errorf("can not set value %v to %s", o, name)
-			}
+			return fmt.Errorf("unsupported data type %s", f.Kind())
 		}
 	}
 	return nil
@@ -186,12 +185,12 @@ type section struct {
 	Sections map[string]*section
 }
 
-func parse(reader io.Reader) (*section, error) {
+func parse(reader io.Reader, name string) (*section, error) {
 	lex := new(lexer)
 	lex.scan.Init(reader)
 	lex.scan.Mode = scanner.ScanIdents | scanner.ScanStrings | scanner.ScanInts | scanner.ScanFloats
 
-	c := &section{"", make(map[string]interface{}), make(map[string]*section)}
+	c := &section{name, make(map[string]interface{}), make(map[string]*section)}
 	lex.next()
 	if lex.token != leftSquareBracket {
 		return c, ErrSyntax{expected: "[", got: lex.text(), pos: lex.scan.Pos()}
@@ -210,20 +209,25 @@ func parseSections(lex *lexer, c *section) error {
 	if err != nil {
 		return err
 	}
-
-	s, ok := c.Sections[base]
-	if !ok {
-		s = &section{base, make(map[string]interface{}), make(map[string]*section)}
-		c.Sections[base] = s
-	}
-	for _, name := range parts {
-		other, ok := s.Sections[name]
-		if !ok {
-			s.Sections[name] = &section{name, make(map[string]interface{}), make(map[string]*section)}
-			s = s.Sections[name]
+	var s *section
+	if base != c.Name {
+		if other, ok := c.Sections[base]; !ok {
+			s = &section{base, make(map[string]interface{}), make(map[string]*section)}
+			c.Sections[base] = s
 		} else {
 			s = other
 		}
+		for _, name := range parts {
+			other, ok := s.Sections[name]
+			if !ok {
+				s.Sections[name] = &section{name, make(map[string]interface{}), make(map[string]*section)}
+				s = s.Sections[name]
+			} else {
+				s = other
+			}
+		}
+	} else {
+		s = c
 	}
 
 	lex.next()
@@ -231,7 +235,6 @@ func parseSections(lex *lexer, c *section) error {
 		return ErrSyntax{expected: "]", got: lex.text(), pos: lex.scan.Pos()}
 	}
 
-	//s := section{name, make(map[string]interface{}), make(map[string]section)}
 	for {
 		lex.next()
 		parseComment(lex)
