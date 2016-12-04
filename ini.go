@@ -171,6 +171,26 @@ func decode(v, other reflect.Value) error {
 		v.SetBool(other.Bool())
 	case reflect.Int:
 		v.SetInt(other.Int())
+	case reflect.Slice, reflect.Array:
+		s := reflect.MakeSlice(v.Type(), 0, other.Len())
+		for i := 0; i < other.Len(); i++ {
+			value := reflect.New(s.Type().Elem()).Elem()
+			if err := decode(value, other.Index(i)); err != nil {
+				return err
+			}
+			s = reflect.Append(s, value)
+		}
+		v.Set(s)
+	case reflect.Map:
+		m := reflect.MakeMap(v.Type())
+		for _, k := range other.MapKeys() {
+			value := reflect.New(m.Type().Elem()).Elem()
+			if err := decode(value, other.MapIndex(k)); err != nil {
+				return err
+			}
+			m.SetMapIndex(k, value)
+		}
+		v.Set(m)
 	default:
 		return fmt.Errorf("unsupported data type %s", v.Kind())
 	}
