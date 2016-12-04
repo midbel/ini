@@ -200,8 +200,6 @@ func decode(v, other reflect.Value) error {
 	return nil
 }
 
-type config map[string]*section
-
 type section struct {
 	Name     string
 	Options  map[string]interface{}
