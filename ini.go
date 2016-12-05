@@ -280,7 +280,8 @@ func parseSections(lex *lexer, c *section) error {
 			return ErrSyntax{expected: string(eq), got: lex.text(), pos: lex.scan.Pos()}
 		}
 		lex.next()
-		if value, err := parseOption(lex); err != nil {
+		value, err := parseOption(lex)
+		if err != nil {
 			return err
 		}
 		if _, ok := s.Options[option]; ok {
@@ -347,7 +348,8 @@ func parseOption(lex *lexer) (interface{}, error) {
 			if lex.token == rightSquareBracket {
 				break
 			}
-			if v, err := parseOption(lex); err != nil {
+			v, err := parseOption(lex)
+			if err != nil {
 				return nil, err
 			}
 			values = append(values, v)
@@ -364,16 +366,14 @@ func parseOption(lex *lexer) (interface{}, error) {
 			if lex.token == rightCurlyBracket {
 				break
 			}
-
-			var key string
-			if v, err := parseOption(lex); err != nil {
+			v, err := parseOption(lex)
+			if err != nil {
 				return nil, err
 			}
-			v, ok := v.(string)
+			key, ok := v.(string)
 			if !ok {
-				return nil, ErrSyntax{expected: "hash keys must be strings", got: v, pos: lex.scan.Pos()}
+				return nil, ErrSyntax{expected: "hash keys must be strings", got: fmt.Sprintf("%v", v), pos: lex.scan.Pos()}
 			}
-			key = v
 			lex.next()
 			if lex.token != colon {
 				return nil, ErrSyntax{expected: string(colon), got: lex.text(), pos: lex.scan.Pos()}
@@ -381,8 +381,9 @@ func parseOption(lex *lexer) (interface{}, error) {
 			lex.next()
 			if v, err := parseOption(lex); err != nil {
 				return nil, err
-			}
-			values[key] = v
+			} else {
+    			values[key] = v
+    		}
 
 			lex.next()
 			if lex.token != coma {
