@@ -23,11 +23,11 @@ const (
 )
 
 var (
-	//Name of the top level section of an ini file. By Default, the value is set
-	//to the program
+	//DefaultSectionName is the name of the top level section of an ini file.
+	//By Default, the value is set to the program
 	DefaultSectionName = os.Args[0]
 
-	//Strict Mode defines how the parser and the reader will behave when a section
+	//DefaultStrictMode defines how the parser and the reader will behave when a section
 	//and/or option will not be found or is duplicated.
 	DefaultStrictMode = false
 )
@@ -280,13 +280,12 @@ func parseSections(lex *lexer, c *section) error {
 		lex.next()
 		if value, err := parseOption(lex); err != nil {
 			return err
-		} else {
-			if _, ok := s.Options[option]; ok {
-				return ErrDuplicateOption{option, base}
-			}
-			s.Options[option] = value
-			parseComment(lex)
 		}
+		if _, ok := s.Options[option]; ok {
+			return ErrDuplicateOption{option, base}
+		}
+		s.Options[option] = value
+		parseComment(lex)
 	}
 
 	return nil
@@ -310,9 +309,8 @@ loop:
 	}
 	if len(parts) > 1 {
 		return parts[0], parts[1:], nil
-	} else {
-		return parts[0], []string{}, nil
 	}
+	return parts[0], []string{}, nil
 }
 
 func parseComment(lex *lexer) {
@@ -349,9 +347,8 @@ func parseOption(lex *lexer) (interface{}, error) {
 			}
 			if v, err := parseOption(lex); err != nil {
 				return nil, err
-			} else {
-				values = append(values, v)
 			}
+			values = append(values, v)
 			lex.next()
 			if lex.token != coma {
 				return nil, ErrSyntax{expected: string(coma), got: lex.text(), pos: lex.scan.Pos()}
@@ -369,13 +366,12 @@ func parseOption(lex *lexer) (interface{}, error) {
 			var key string
 			if v, err := parseOption(lex); err != nil {
 				return nil, err
-			} else {
-				v, ok := v.(string)
-				if !ok {
-					return nil, ErrSyntax{expected: "hash keys must be strings", got: v, pos: lex.scan.Pos()}
-				}
-				key = v
 			}
+			v, ok := v.(string)
+			if !ok {
+				return nil, ErrSyntax{expected: "hash keys must be strings", got: v, pos: lex.scan.Pos()}
+			}
+			key = v
 			lex.next()
 			if lex.token != colon {
 				return nil, ErrSyntax{expected: string(colon), got: lex.text(), pos: lex.scan.Pos()}
@@ -383,9 +379,9 @@ func parseOption(lex *lexer) (interface{}, error) {
 			lex.next()
 			if v, err := parseOption(lex); err != nil {
 				return nil, err
-			} else {
-				values[key] = v
 			}
+			values[key] = v
+
 			lex.next()
 			if lex.token != coma {
 				return nil, ErrSyntax{expected: string(coma), got: lex.text(), pos: lex.scan.Pos()}
