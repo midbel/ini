@@ -124,7 +124,6 @@ func read(v reflect.Value, s *section, strict bool) error {
 		field := t.Field(i)
 		//check if s has field.Name as an option
 		o, ok := s.Options[strings.ToLower(field.Name)]
-		fmt.Println(field.Name, o, ok)
 		if ok {
 			if err := decode(f, reflect.ValueOf(o)); err != nil {
 				return err
