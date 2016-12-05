@@ -77,6 +77,7 @@ func (s ErrSyntax) Error() string {
 	return fmt.Sprintf("syntax error: expected %q, got %q (line: %s)", s.expected, s.got, s.pos)
 }
 
+//Reader is the type to parse ini file.
 type Reader struct {
 	Default     string
 	Strict      bool
@@ -85,6 +86,7 @@ type Reader struct {
 	config      *section
 }
 
+//NewReader creates a new reader to parse ini file.
 func NewReader(r io.Reader) *Reader {
 	return &Reader{
 		reader:  r,
