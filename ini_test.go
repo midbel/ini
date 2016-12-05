@@ -64,7 +64,7 @@ size   = 1024
 keep   = false
 `
 
-func ExampleRead() {
+func ExampleReader() {
 	r := NewReader(strings.NewReader(account))
 	r.Default = "account"
 
