@@ -124,6 +124,7 @@ func read(v reflect.Value, s *section, strict bool) error {
 		field := t.Field(i)
 		//check if s has field.Name as an option
 		o, ok := s.Options[strings.ToLower(field.Name)]
+		fmt.Println(field.Name, o, ok)
 		if ok {
 			if err := decode(f, reflect.ValueOf(o)); err != nil {
 				return err
@@ -160,7 +161,8 @@ func read(v reflect.Value, s *section, strict bool) error {
 				return err
 			}
 		default:
-			return fmt.Errorf("unsupported data type %s", f.Kind())
+			//ignore if field is not an option nor a section
+			continue
 		}
 	}
 	return nil
