@@ -42,6 +42,11 @@ var supportedIds = map[string]interface{}{
 	"null":  nil,
 }
 
+type Setter interface {
+	Set(string) error
+	fmt.Stringer
+}
+
 //ErrDuplicateSection is returned when a section is defined more than once in a
 //ini files.
 type ErrDuplicateSection string
@@ -128,7 +133,7 @@ func read(v reflect.Value, s *section, strict bool) error {
 		//check if s has field.Name as an option
 		o, ok := s.Options[strings.ToLower(field.Name)]
 		if ok {
-			if err := decode(f, reflect.ValueOf(o)); err != nil {
+			if err := decode(f, reflect.ValueOf(o)); err != nil && strict {
 				return err
 			}
 			continue
@@ -177,12 +182,24 @@ func decode(v, other reflect.Value) error {
 	if other.Kind() == reflect.Interface {
 		other = reflect.ValueOf(other.Interface())
 	}
+	setter := reflect.TypeOf((*Setter)(nil)).Elem()
+	if reflect.PtrTo(v.Type()).Implements(setter) && other.Kind() == reflect.String {
+		i := v.Addr().Interface().(Setter)
+		if err := i.Set(other.String()); err != nil {
+			return err
+		}
+		f := reflect.ValueOf(i)
+		v.Set(reflect.Indirect(f))
+		return nil
+	}
+	
 	text := reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 	if reflect.PtrTo(v.Type()).Implements(text) && other.Kind() == reflect.String {
 		i := v.Addr().Interface().(encoding.TextUnmarshaler)
 		if err := i.UnmarshalText([]byte(other.String())); err != nil {
 			return err
 		}
+		f := reflect.ValueOf(i)
 		v.Set(reflect.Indirect(f))
 		return nil
 	}
