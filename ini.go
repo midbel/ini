@@ -1,6 +1,7 @@
 package ini
 
 import (
+	"encoding"
 	"fmt"
 	"io"
 	"os"
@@ -175,6 +176,15 @@ func read(v reflect.Value, s *section, strict bool) error {
 func decode(v, other reflect.Value) error {
 	if other.Kind() == reflect.Interface {
 		other = reflect.ValueOf(other.Interface())
+	}
+	text := reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+	if reflect.PtrTo(v.Type()).Implements(text) && other.Kind() == reflect.String {
+		i := v.Addr().Interface().(encoding.TextUnmarshaler)
+		if err := i.UnmarshalText([]byte(other.String())); err != nil {
+			return err
+		}
+		v.Set(reflect.Indirect(f))
+		return nil
 	}
 	if v.Kind() != other.Kind() {
 		return fmt.Errorf("mismatched type. Expected %s, got %s", v.Kind(), other.Kind())

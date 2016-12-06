@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 const account = `
@@ -63,6 +64,11 @@ prefix = "0xcafe"
 size   = 1024
 keep   = false
 `
+const timestamp = `
+[timestamp]
+before = "1970-01-01T00:00:00Z"
+after = "2020-01-01T00:00:00Z"
+`
 
 func ExampleReader() {
 	r := NewReader(strings.NewReader(account))
@@ -78,6 +84,23 @@ func ExampleReader() {
 	fmt.Printf("%+v\n", a)
 	//Output:
 	//{User:nobody Passwd:foobar Enabled:true}
+}
+
+func TestReadUnmarshalText(t *testing.T) {
+	r := NewReader(strings.NewReader(timestamp))
+	r.Default = "timestamp"
+	
+	c := struct{
+		Before time.Time
+		After time.Time
+	}{}
+	if err := r.Read(&c); err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
+	if c.Before.IsZero() || c.After.IsZero() {
+		t.Errorf("before/after fields not correctly unmarshaled")
+	}
+	t.Logf("%+v", c)
 }
 
 func TestReadAccount(t *testing.T) {
