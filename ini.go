@@ -151,7 +151,7 @@ func read(v reflect.Value, s *section, strict bool) error {
 			}
 			for _, s := range other.Sections {
 				v := reflect.New(f.Type().Elem()).Elem()
-				if err := read(v, s, strict); err != nil {
+				if err := read(v, s, strict); err != nil && strict{
 					return err
 				}
 				f.Set(reflect.Append(f, v))
@@ -162,8 +162,11 @@ func read(v reflect.Value, s *section, strict bool) error {
 				return err
 			}
 		default:
-			//ignore if field is not an option nor a section
-			continue
+			if !strict {
+				continue
+			} else {
+				return fmt.Errorf("missing option/section %s", name)
+			}
 		}
 	}
 	return nil
