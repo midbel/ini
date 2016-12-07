@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"text/scanner"
 )
 
@@ -88,8 +89,10 @@ type Reader struct {
 	Default     string
 	Strict      bool
 	Insensitive bool
+	Err         error
 	reader      io.Reader
 	config      *section
+	once        sync.Once
 }
 
 //NewReader creates a new reader to parse ini file.
@@ -102,11 +105,10 @@ func NewReader(r io.Reader) *Reader {
 }
 
 func (r *Reader) Read(v interface{}) error {
-	c, err := parse(r.reader, r.Default)
-	if err != nil {
-		return err
+	r.once.Do(r.init)
+	if r.Err != nil {
+		return r.Err
 	}
-	r.config = c
 	if v == nil {
 		return nil
 	}
@@ -116,14 +118,23 @@ func (r *Reader) Read(v interface{}) error {
 //ReadSection reads the section s from the Reader into v. If the embed config of
 //the reader is nil, no error is returned and v is unchanged.
 func (r *Reader) ReadSection(s string, v interface{}) error {
-	if r.config == nil {
-		return nil
+	r.once.Do(r.init)
+	if r.Err != nil {
+		return r.Err
 	}
 	c := r.config.Get(s)
 	if c == nil {
 		return fmt.Errorf("section %s not found", s)
 	}
-	return read(reflect.ValueOf(v).Elem(), r.config, r.Strict)
+	return read(reflect.ValueOf(v).Elem(), c, r.Strict)
+}
+
+func (r *Reader) init() {
+	if c, err := parse(r.reader, r.Default); err != nil {
+		r.Err = err
+	} else {
+		r.config = c
+	}
 }
 
 func read(v reflect.Value, s *section, strict bool) error {
@@ -161,7 +172,7 @@ func read(v reflect.Value, s *section, strict bool) error {
 			}
 			for _, s := range other.Sections {
 				v := reflect.New(f.Type().Elem()).Elem()
-				if err := read(v, s, strict); err != nil && strict{
+				if err := read(v, s, strict); err != nil && strict {
 					return err
 				}
 				f.Set(reflect.Append(f, v))
@@ -196,7 +207,7 @@ func decode(v, other reflect.Value) error {
 		v.Set(reflect.Indirect(f))
 		return nil
 	}
-	
+
 	text := reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 	if reflect.PtrTo(v.Type()).Implements(text) && other.Kind() == reflect.String {
 		i := v.Addr().Interface().(encoding.TextUnmarshaler)
@@ -431,8 +442,8 @@ func parseOption(lex *lexer) (interface{}, error) {
 			if v, err := parseOption(lex); err != nil {
 				return nil, err
 			} else {
-    			values[key] = v
-    		}
+				values[key] = v
+			}
 
 			lex.next()
 			if lex.token != coma {

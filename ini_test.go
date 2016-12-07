@@ -89,10 +89,10 @@ func ExampleReader() {
 func TestReadUnmarshalText(t *testing.T) {
 	r := NewReader(strings.NewReader(timestamp))
 	r.Default = "timestamp"
-	
-	c := struct{
+
+	c := struct {
 		Before time.Time
-		After time.Time
+		After  time.Time
 	}{}
 	if err := r.Read(&c); err != nil {
 		t.Errorf("unexpected error: %s", err)
@@ -117,20 +117,25 @@ func TestReadSection(t *testing.T) {
 		Enabled bool
 		Alias   []string
 	}
-	
+
 	data := []struct {
 		Section string
 		Sample  string
 		Data    interface{}
+		Found   bool
 	}{
-		{"account", account, new(Account)},
-		{"directory", account, new(Directory)},
-		{"directory", directory, new(Directory)},
+		{"account", account, new(Account), true},
+		{"directory", account, new(Directory), false},
+		{"ldap", directory, new(Directory), true},
 	}
 	for i, d := range data {
 		r := NewReader(strings.NewReader(d.Sample))
-		if err := r.ReadSection(d.Section, d.Data); err != nil {
+		err := r.ReadSection(d.Section, d.Data)
+		switch {
+		case d.Found && err != nil:
 			t.Errorf("#%d: fail to read section %s", i, d.Section)
+		case !d.Found && err == nil:
+			t.Errorf("#%d: section %s found and should not", i, d.Section)
 		}
 	}
 }
