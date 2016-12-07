@@ -1,3 +1,4 @@
+//Package ini read ini file(s) and load the parsed value into user defined struct.
 package ini
 
 import (
