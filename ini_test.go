@@ -103,6 +103,38 @@ func TestReadUnmarshalText(t *testing.T) {
 	t.Logf("%+v", c)
 }
 
+func TestReadSection(t *testing.T) {
+	type Directory struct {
+		Host   string
+		Bind   string
+		Passwd string
+		Base   string
+		Hash   string
+	}
+	type Account struct {
+		User    string
+		Passwd  string
+		Enabled bool
+		Alias   []string
+	}
+	
+	data := []struct {
+		Section string
+		Sample  string
+		Data    interface{}
+	}{
+		{"account", account, new(Account)},
+		{"directory", account, new(Directory)},
+		{"directory", directory, new(Directory)},
+	}
+	for i, d := range data {
+		r := NewReader(strings.NewReader(d.Sample))
+		if err := r.ReadSection(d.Section, d.Data); err != nil {
+			t.Errorf("#%d: fail to read section %s", i, d.Section)
+		}
+	}
+}
+
 func TestReadAccount(t *testing.T) {
 	r := NewReader(strings.NewReader(account))
 	r.Default = "account"

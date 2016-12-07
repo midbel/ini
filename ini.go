@@ -119,6 +119,10 @@ func (r *Reader) ReadSection(s string, v interface{}) error {
 	if r.config == nil {
 		return nil
 	}
+	c := r.config.Get(s)
+	if c == nil {
+		return fmt.Errorf("section %s not found", s)
+	}
 	return read(reflect.ValueOf(v).Elem(), r.config, r.Strict)
 }
 
@@ -243,6 +247,21 @@ type section struct {
 	Name     string
 	Options  map[string]interface{}
 	Sections map[string]*section
+}
+
+func (s *section) Get(n string) *section {
+	if s.Name == n {
+		return s
+	}
+	for _, other := range s.Sections {
+		if other.Name == n {
+			return other
+		}
+		if other := other.Get(n); other != nil {
+			return other
+		}
+	}
+	return nil
 }
 
 func parse(reader io.Reader, name string) (*section, error) {
