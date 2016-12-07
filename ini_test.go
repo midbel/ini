@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+const quote = `
+[quote]
+expr = "var0 == \"value1\" && var1 == \"value2\""
+`
+
 const account = `
 [account]
 user = "nobody"
@@ -137,6 +142,23 @@ func TestReadSection(t *testing.T) {
 		case !d.Found && err == nil:
 			t.Errorf("#%d: section %s found and should not", i, d.Section)
 		}
+	}
+}
+
+func TestReadQuote(t *testing.T) {
+	r := NewReader(strings.NewReader(quote))
+	r.Default = "quote"
+	
+	d := struct {
+		Expr string
+	}{}
+	if err := r.Read(&d); err != nil {
+		t.Errorf("unexpected error: %s", err)
+		t.FailNow()
+	}
+	result := `var0 == "value1" && var1 == "value2"`
+	if strings.TrimSpace(d.Expr) != strings.TrimSpace(result) {
+		t.Errorf("expected %s, got %s", result, d.Expr)
 	}
 }
 
