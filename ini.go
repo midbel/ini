@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -130,6 +131,22 @@ func (r *Reader) ReadSection(s string, v interface{}) error {
 }
 
 func (r *Reader) init() {
+	type named interface{
+		Name() string
+	}
+	section := r.Default
+	if section == "" {
+		switch r := r.reader.(type) {
+		case named:
+			base := filepath.Base(r.Name())
+			if ext := filepath.Ext(base); ext != "" {
+				base = strings.Replace(base, ext, "", 1)
+			}
+			section = base
+		case fmt.Stringer:
+			section = r.String()
+		}
+	}
 	if c, err := parse(r.reader, r.Default); err != nil {
 		r.Err = err
 	} else {
@@ -396,6 +413,7 @@ func parseOption(lex *lexer) (interface{}, error) {
 		}
 		return nil, fmt.Errorf("%q unknown identifier", id)
 	case scanner.String:
+		fmt.Println("**", lex.text())
 		return strings.Trim(lex.text(), "\""), nil
 	case scanner.Int:
 		return strconv.Atoi(lex.text())
