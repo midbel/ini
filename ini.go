@@ -147,7 +147,7 @@ func (r *Reader) init() {
 			section = r.String()
 		}
 	}
-	if c, err := parse(r.reader, r.Default); err != nil {
+	if c, err := parse(r.reader, section); err != nil {
 		r.Err = err
 	} else {
 		r.config = c
