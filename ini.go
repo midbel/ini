@@ -110,6 +110,19 @@ func NewReader(r io.Reader) *Reader {
 	}
 }
 
+//Read read from the parsed ini files all the option's values into v (v should
+//be, ideally, a struct).
+//
+//The rules to set a value are as follow:
+//1) check if the field name matchs an option for the current section. If not,
+//check if the current section contains a sub section with the field name. If
+//not, according Strict has been set to true, returns an error, else continue.
+//2) set the option value to the current field:
+//** current field implements the Setter interface
+//** current field implements the encoding.TextUnmarshal interface and the
+//option value type is string
+//** set the value to the field only if the field type and the option value type
+//are the same or an error is returned
 func (r *Reader) Read(v interface{}) error {
 	r.once.Do(r.init)
 	if r.Err != nil {
