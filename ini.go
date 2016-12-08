@@ -33,7 +33,7 @@ const (
 var (
 	//DefaultSectionName is the name of the top level section of an ini file.
 	//By Default, the value is set to the program
-	DefaultSectionName = os.Args[0]
+	DefaultSectionName = filepath.Base(os.Args[0])
 
 	//DefaultStrictMode defines how the parser and the reader will behave when a section
 	//and/or option will not be found or is duplicated.
