@@ -1,4 +1,8 @@
-//Package ini read ini file(s) and load the parsed value into user defined struct.
+//Package ini provides a Reader to read ini file(s).
+//
+//The Reader can deal with simple values such as string, int, bool but can also
+//deal with more complex type such as slice, map and struct like the toml format
+//(although this package doesn't try to be compliant with it).
 package ini
 
 import (
