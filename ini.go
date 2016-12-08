@@ -92,13 +92,24 @@ func (s ErrSyntax) Error() string {
 
 //Reader is the type to parse ini file.
 type Reader struct {
-	Default     string
-	Strict      bool
+	//Default top level section Name (by default the value is set to
+	//DefaultSectionName).
+	Default string
+
+	//Strict governs how errors are handled when setting option 's value to the
+	//receiver and/or how not found options/sections are handled (by default the
+	//the value is set to DefaultStrictMore).
+	Strict bool
+
+	//Set this field to true in order to lookup for options/sections with or
+	//without taking into accounts the case of a field and/or a name.
 	Insensitive bool
-	Err         error
-	reader      io.Reader
-	config      *section
-	once        sync.Once
+
+	//Err is the last error catched when parsing an INI by the Reader.
+	Err    error
+	reader io.Reader
+	config *section
+	once   sync.Once
 }
 
 //NewReader creates a new reader to parse ini file.
@@ -113,16 +124,29 @@ func NewReader(r io.Reader) *Reader {
 //Read read from the parsed ini files all the option's values into v (v should
 //be, ideally, a struct).
 //
-//The rules to set a value are as follow:
-//1) check if the field name matchs an option for the current section. If not,
-//check if the current section contains a sub section with the field name. If
-//not, according Strict has been set to true, returns an error, else continue.
-//2) set the option value to the current field:
-//** current field implements the Setter interface
-//** current field implements the encoding.TextUnmarshal interface and the
-//option value type is string
-//** set the value to the field only if the field type and the option value type
-//are the same or an error is returned
+//The rules to set a value from an option to a field are as follow:
+//
+//	* check if the field name matchs an option of the current section. If an
+//	  an option is found, set the value to the field (see bellow for more detail)
+//
+//	* check if the field name matchs a sub-section of the current section. If
+//	  a section is found, repeat step one.
+//
+//	* if not options and/or sections is found, an error is returned if the
+//	  the Strict field of the Reader has been set to true else the processing
+//	  continue to the next field.
+//
+//Bellow the rules followed to set the actual option'value to a field:
+//
+//	* if the current field implements the Setter interface, use the Set method
+//	  and returns an error if any.
+//
+//  * if the current field implements the encoding.TextUnmarshaler interface and
+//	  the option's value is a string, use the UnmarshalText method and returns
+//	  an error if any.
+//
+//	* set the value to the current field only if the type of the option value
+//	  is the same of the current field.
 func (r *Reader) Read(v interface{}) error {
 	r.once.Do(r.init)
 	if r.Err != nil {
@@ -136,6 +160,8 @@ func (r *Reader) Read(v interface{}) error {
 
 //ReadSection reads the section s from the Reader into v. If the embed config of
 //the reader is nil, no error is returned and v is unchanged.
+//
+//See Read for more detail how option's value are set to value.
 func (r *Reader) ReadSection(s string, v interface{}) error {
 	r.once.Do(r.init)
 	if r.Err != nil {
@@ -149,7 +175,7 @@ func (r *Reader) ReadSection(s string, v interface{}) error {
 }
 
 func (r *Reader) init() {
-	type named interface{
+	type named interface {
 		Name() string
 	}
 	section := r.Default
@@ -434,7 +460,7 @@ func parseOption(lex *lexer) (interface{}, error) {
 		value := lex.text()
 		value = strings.TrimPrefix(value, "\"")
 		value = strings.TrimSuffix(value, "\"")
-		
+
 		return strings.Replace(value, "\\", "", -1), nil
 	case scanner.Int:
 		return strconv.Atoi(lex.text())

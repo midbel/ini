@@ -148,7 +148,7 @@ func TestReadSection(t *testing.T) {
 func TestReadQuote(t *testing.T) {
 	r := NewReader(strings.NewReader(quote))
 	r.Default = "quote"
-	
+
 	d := struct {
 		Expr string
 	}{}
