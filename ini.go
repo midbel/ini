@@ -519,7 +519,7 @@ func parseOption(lex *lexer) (interface{}, error) {
 func cleanString(s string) string {
 	s = strings.TrimPrefix(s, "\"")
 	s = strings.TrimSuffix(s, "\"")
-	
+
 	r := strings.NewReplacer(`\\`, `\`, `\"`, `"`)
 	return r.Replace(s)
 }
