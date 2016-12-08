@@ -141,7 +141,7 @@ func NewReader(r io.Reader) *Reader {
 //	* if the current field implements the Setter interface, use the Set method
 //	  and returns an error if any.
 //
-//  * if the current field implements the encoding.TextUnmarshaler interface and
+//	* if the current field implements the encoding.TextUnmarshaler interface and
 //	  the option's value is a string, use the UnmarshalText method and returns
 //	  an error if any.
 //
