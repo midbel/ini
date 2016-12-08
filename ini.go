@@ -457,11 +457,7 @@ func parseOption(lex *lexer) (interface{}, error) {
 		}
 		return nil, fmt.Errorf("%q unknown identifier", id)
 	case scanner.String:
-		value := lex.text()
-		value = strings.TrimPrefix(value, "\"")
-		value = strings.TrimSuffix(value, "\"")
-
-		return strings.Replace(value, "\\", "", -1), nil
+		return cleanString(lex.text()), nil
 	case scanner.Int:
 		return strconv.Atoi(lex.text())
 	case scanner.Float:
@@ -518,6 +514,14 @@ func parseOption(lex *lexer) (interface{}, error) {
 		return values, nil
 	}
 	return nil, ErrSyntax{expected: "option's value", got: lex.text(), pos: lex.scan.Pos()}
+}
+
+func cleanString(s string) string {
+	s = strings.TrimPrefix(s, "\"")
+	s = strings.TrimSuffix(s, "\"")
+	
+	r := strings.NewReplacer(`\\`, `\`, `\"`, `"`)
+	return r.Replace(s)
 }
 
 type lexer struct {
